@@ -1,0 +1,17 @@
+[
+  {"id": 1,  "nombre": "Ana García",      "depto": "Ingeniería", "cargo": "Desarrolladora Senior", "salario": 62000.00, "ciudad": "Madrid"},
+  {"id": 2,  "nombre": "Carlos López",    "depto": "Ventas",     "cargo": "Account Manager",       "salario": 45000.00, "ciudad": "Barcelona"},
+  {"id": 3,  "nombre": "Laura Martínez",  "depto": "Ingeniería", "cargo": "DevOps Engineer",       "salario": 58000.00, "ciudad": "Madrid"},
+  {"id": 4,  "nombre": "Pedro Sánchez",   "depto": "RRHH",       "cargo": "HR Specialist",         "salario": 38000.00, "ciudad": "Sevilla"},
+  {"id": 5,  "nombre": "Marta Fernández", "depto": "Ingeniería", "cargo": "QA Engineer",           "salario": 50000.00, "ciudad": "Barcelona"},
+  {"id": 6,  "nombre": "Jorge Ruiz",      "depto": "Ventas",     "cargo": "Sales Director",        "salario": 70000.00, "ciudad": "Madrid"},
+  {"id": 7,  "nombre": "Sofía Torres",    "depto": "Marketing",  "cargo": "Content Manager",       "salario": 42000.00, "ciudad": "Valencia"},
+  {"id": 8,  "nombre": "Diego Moreno",    "depto": "Ingeniería", "cargo": "Desarrollador Junior",  "salario": 35000.00, "ciudad": "Madrid"},
+  {"id": 9,  "nombre": "Elena Jiménez",   "depto": "Marketing",  "cargo": "CMO",                   "salario": 75000.00, "ciudad": "Barcelona"},
+  {"id": 10, "nombre": "Raúl Navarro",    "depto": "RRHH",       "cargo": "HR Director",           "salario": 60000.00, "ciudad": "Madrid"},
+  {"id": 11, "nombre": "Isabel Castro",   "depto": "Ingeniería", "cargo": "Tech Lead",             "salario": 80000.00, "ciudad": "Sevilla"},
+  {"id": 12, "nombre": "Andrés Romero",   "depto": "Ventas",     "cargo": "SDR",                   "salario": 32000.00, "ciudad": "Valencia"},
+  {"id": 13, "nombre": "Lucía Vargas",    "depto": "Marketing",  "cargo": "SEO Specialist",        "salario": 40000.00, "ciudad": "Madrid"},
+  {"id": 14, "nombre": "Pablo Gil",       "depto": "Ingeniería", "cargo": "Arquitecto Cloud",      "salario": 90000.00, "ciudad": "Barcelona"},
+  {"id": 15, "nombre": "Carmen Reyes",    "depto": "RRHH",       "cargo": "Recruiter",             "salario": 36000.00, "ciudad": "Madrid"}
+]
