@@ -52,14 +52,30 @@ def get_empleados(
 @app.get("/info")
 def get_info():
     """Muestra información sobre la configuración de la conexión."""
+    import socket
     endpoint = os.environ.get("COS_ENDPOINT", "no configurado")
-    es_vpe = "direct" in endpoint
+    vpe_ip = "192.168.1.4"
+
+    # Extraer hostname del endpoint
+    hostname = endpoint.replace("https://", "").replace("http://", "").split("/")[0]
+
+    # Resolver DNS
+    try:
+        resolved_ips = list(set(r[4][0] for r in socket.getaddrinfo(hostname, None)))
+    except Exception as e:
+        resolved_ips = [f"Error resolviendo DNS: {str(e)}"]
+
+    usa_vpe = vpe_ip in resolved_ips
+
     return {
         "servicio": "Cloud Object Storage",
         "endpoint": endpoint,
+        "hostname": hostname,
+        "ips_resueltas": resolved_ips,
+        "vpe_ip_esperada": vpe_ip,
+        "usa_vpe_exacto": usa_vpe,
         "bucket": os.environ.get("COS_BUCKET", "no configurado"),
-        "conexion_via_vpe": es_vpe,
-        "tipo_conexion": "Red privada (VPE)" if es_vpe else "Internet público",
+        "tipo_conexion": f"VPE exacto ({vpe_ip})" if usa_vpe else "Red privada IBM (sin VPE específico)",
     }
 
 @app.get("/filtros")
