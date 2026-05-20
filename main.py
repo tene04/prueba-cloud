@@ -55,7 +55,7 @@ def get_info():
     """Muestra información sobre la configuración de la conexión."""
     import socket
     endpoint = os.environ.get("COS_ENDPOINT", "no configurado")
-    vpe_ip = "192.168.1.4"
+    vpe_ip = "192.168.1.18"
 
     # Extraer hostname del endpoint
     hostname = endpoint.replace("https://", "").replace("http://", "").split("/")[0]
