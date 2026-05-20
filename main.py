@@ -21,6 +21,7 @@ def get_cos_client():
         ibm_api_key_id=os.environ["COS_API_KEY"],
         ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"],
         config=Config(signature_version="oauth"),
+        verify=False,
         endpoint_url=os.environ["COS_ENDPOINT"],
     )
 
