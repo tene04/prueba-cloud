@@ -1,12 +1,22 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+
 import ibm_boto3
 from ibm_botocore.client import Config
+
 import json
 import os
-from typing import Optional
+import socket
+import time
+import logging
 
 app = FastAPI()
+
+# =========================
+# LOGGING GLOBAL
+# =========================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ce-cos-debug")
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,111 +25,175 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# =========================
+# COS CLIENT DEBUG
+# =========================
 def get_cos_client():
-    return ibm_boto3.client(
+    endpoint = os.environ.get("COS_ENDPOINT")
+    bucket = os.environ.get("COS_BUCKET")
+
+    logger.info("====================================")
+    logger.info("🔧 CREANDO CLIENTE COS")
+    logger.info(f"Endpoint: {endpoint}")
+    logger.info(f"Bucket: {bucket}")
+    logger.info(f"Instance CRN: {'COS_INSTANCE_CRN' in os.environ}")
+    logger.info(f"API KEY: {'COS_API_KEY' in os.environ}")
+
+    client = ibm_boto3.client(
         "s3",
         ibm_api_key_id=os.environ["COS_API_KEY"],
         ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"],
         config=Config(
             signature_version="oauth",
-            s3={'addressing_style': 'path'} # <--- VITAL para que no rompa la URL
+            s3={"addressing_style": "path"}
         ),
         verify=False,
-        endpoint_url=os.environ["COS_ENDPOINT"], # Debe ser http://192.168.1.12
+        endpoint_url=endpoint,
     )
 
+    logger.info("✅ Cliente COS creado correctamente")
+    logger.info("====================================")
+
+    return client
+
+
+# =========================
+# COS READ DEBUG
+# =========================
 def get_empleados_data():
-    client = get_cos_client()
-    response = client.get_object(
-        Bucket=os.environ["COS_BUCKET"],
-        Key="empleados.json"
-    )
-    return json.loads(response["Body"].read().decode("utf-8"))
+    start = time.time()
 
+    client = get_cos_client()
+
+    bucket = os.environ["COS_BUCKET"]
+    key = "empleados.json"
+
+    logger.info("📦 INICIO GET_OBJECT")
+    logger.info(f"Bucket: {bucket}")
+    logger.info(f"Key: {key}")
+
+    try:
+        response = client.get_object(
+            Bucket=bucket,
+            Key=key
+        )
+
+        logger.info("📥 RESPUESTA RECIBIDA DE COS")
+
+        body = response["Body"].read()
+        size = len(body)
+
+        logger.info(f"📏 Tamaño payload: {size} bytes")
+
+        data = json.loads(body.decode("utf-8"))
+
+        logger.info(f"⏱ COS OK en {time.time() - start:.2f}s")
+        logger.info("====================================")
+
+        return data
+
+    except Exception as e:
+        logger.error("💥 ERROR EN GET_OBJECT COS")
+        logger.error(str(e))
+        logger.error("====================================")
+        raise
+
+
+# =========================
+# ENDPOINT PRINCIPAL
+# =========================
 @app.get("/empleados")
 def get_empleados(
-    depto:  Optional[str] = Query(None),
-    cargo:  Optional[str] = Query(None),
-    ciudad: Optional[str] = Query(None),
+    depto:  str = Query(None),
+    cargo:  str = Query(None),
+    ciudad: str = Query(None),
 ):
+
+    logger.info("🚀 REQUEST /empleados")
+
     data = get_empleados_data()
 
     if depto:
+        logger.info(f"🔎 filtro depto={depto}")
         data = [e for e in data if e["depto"] == depto]
+
     if cargo:
+        logger.info(f"🔎 filtro cargo={cargo}")
         data = [e for e in data if e["cargo"] == cargo]
+
     if ciudad:
+        logger.info(f"🔎 filtro ciudad={ciudad}")
         data = [e for e in data if e["ciudad"] == ciudad]
+
+    logger.info(f"📤 respuesta final {len(data)} registros")
 
     return data
 
+
+# =========================
+# INFO VPE + DNS DEBUG
+# =========================
 @app.get("/info")
 def get_info():
-    """Muestra información sobre la configuración de la conexión."""
-    import socket
-    endpoint = os.environ.get("COS_ENDPOINT", "no configurado")
-    vpe_ip = "192.168.1.18"
 
-    # Extraer hostname del endpoint
+    endpoint = os.environ.get("COS_ENDPOINT", "no configurado")
     hostname = endpoint.replace("https://", "").replace("http://", "").split("/")[0]
 
-    # Resolver DNS
-    try:
-        resolved_ips = list(set(r[4][0] for r in socket.getaddrinfo(hostname, None)))
-    except Exception as e:
-        resolved_ips = [f"Error resolviendo DNS: {str(e)}"]
+    logger.info("🌐 RESOLVIENDO DNS")
+    logger.info(f"Hostname: {hostname}")
 
-    usa_vpe = vpe_ip in resolved_ips
+    try:
+        resolved_ips = list(set(
+            r[4][0] for r in socket.getaddrinfo(hostname, None)
+        ))
+    except Exception as e:
+        resolved_ips = [f"DNS ERROR: {str(e)}"]
+
+    logger.info(f"IPs: {resolved_ips}")
 
     return {
-        "servicio": "Cloud Object Storage",
         "endpoint": endpoint,
         "hostname": hostname,
         "ips_resueltas": resolved_ips,
-        "vpe_ip_esperada": vpe_ip,
-        "usa_vpe_exacto": usa_vpe,
-        "bucket": os.environ.get("COS_BUCKET", "no configurado"),
-        "tipo_conexion": f"VPE exacto ({vpe_ip})" if usa_vpe else "Red privada IBM (sin VPE específico)",
+        "bucket": os.environ.get("COS_BUCKET"),
     }
 
+
+# =========================
+# TEST DE RED (VSI + VPE)
+# =========================
 @app.get("/test-vpe")
 def test_vpe():
-    import socket
-    import requests
-    
-    vpe_ip = "192.168.1.18"
-    vsi_ip = "192.168.1.12" # La IP de tu NLB/VSI
-    
-    results = {}
-    
-    # 1. Probar conexión a la VSI (NLB)
-    try:
-        s = socket.create_connection((vsi_ip, 80), timeout=3)
-        results["conexion_vsi_80"] = "EXITOSA"
-        s.close()
-    except Exception as e:
-        results["conexion_vsi_80"] = f"FALLIDA: {str(e)}"
 
-    # 2. Probar conexión al VPE desde Code Engine (por si acaso)
+    results = {}
+
+    vsi_ip = "192.168.1.12"
+    vpe_ip = "192.168.1.18"
+
+    logger.info("🔌 TEST CONECTIVIDAD")
+
+    # VSI
     try:
-        s = socket.create_connection((vpe_ip, 443), timeout=3)
-        results["conexion_vpe_443"] = "EXITOSA"
-        s.close()
+        socket.create_connection((vsi_ip, 80), timeout=3).close()
+        results["vsi_80"] = "OK"
+        logger.info("✔ VSI OK")
     except Exception as e:
-        results["conexion_vpe_443"] = f"FALLIDA: {str(e)}"
+        results["vsi_80"] = str(e)
+        logger.error(f"❌ VSI FAIL: {e}")
+
+    # VPE
+    try:
+        socket.create_connection((vpe_ip, 443), timeout=3).close()
+        results["vpe_443"] = "OK"
+        logger.info("✔ VPE OK")
+    except Exception as e:
+        results["vpe_443"] = str(e)
+        logger.error(f"❌ VPE FAIL: {e}")
 
     return results
 
-@app.get("/filtros")
-def get_filtros():
-    data = get_empleados_data()
-    return {
-        "depto":  sorted(set(e["depto"]  for e in data)),
-        "cargo":  sorted(set(e["cargo"]  for e in data)),
-        "ciudad": sorted(set(e["ciudad"] for e in data)),
-    }
 
-
+# =========================
 @app.get("/version")
-def get_version():
-    return {"versión": 1}
+def version():
+    return {"version": "debug-1.0"}
