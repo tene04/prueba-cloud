@@ -79,6 +79,34 @@ def get_info():
         "tipo_conexion": f"VPE exacto ({vpe_ip})" if usa_vpe else "Red privada IBM (sin VPE específico)",
     }
 
+@app.get("/test-vpe")
+def test_vpe():
+    import socket
+    import requests
+    
+    vpe_ip = "192.168.1.18"
+    vsi_ip = "192.168.1.12" # La IP de tu NLB/VSI
+    
+    results = {}
+    
+    # 1. Probar conexión a la VSI (NLB)
+    try:
+        s = socket.create_connection((vsi_ip, 80), timeout=3)
+        results["conexion_vsi_80"] = "EXITOSA"
+        s.close()
+    except Exception as e:
+        results["conexion_vsi_80"] = f"FALLIDA: {str(e)}"
+
+    # 2. Probar conexión al VPE desde Code Engine (por si acaso)
+    try:
+        s = socket.create_connection((vpe_ip, 443), timeout=3)
+        results["conexion_vpe_443"] = "EXITOSA"
+        s.close()
+    except Exception as e:
+        results["conexion_vpe_443"] = f"FALLIDA: {str(e)}"
+
+    return results
+
 @app.get("/filtros")
 def get_filtros():
     data = get_empleados_data()
