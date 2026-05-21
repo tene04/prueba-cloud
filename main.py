@@ -20,9 +20,12 @@ def get_cos_client():
         "s3",
         ibm_api_key_id=os.environ["COS_API_KEY"],
         ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"],
-        config=Config(signature_version="oauth"),
+        config=Config(
+            signature_version="oauth",
+            s3={'addressing_style': 'path'} # <--- VITAL para que no rompa la URL
+        ),
         verify=False,
-        endpoint_url=os.environ["COS_ENDPOINT"],
+        endpoint_url=os.environ["COS_ENDPOINT"], # Debe ser http://192.168.1.12
     )
 
 def get_empleados_data():
@@ -115,3 +118,8 @@ def get_filtros():
         "cargo":  sorted(set(e["cargo"]  for e in data)),
         "ciudad": sorted(set(e["ciudad"] for e in data)),
     }
+
+
+@app.get("/version")
+def get_version():
+    return {"versión": 1}
