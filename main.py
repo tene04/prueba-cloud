@@ -30,15 +30,24 @@ app.add_middleware(
 # CLIENTE COS CON FIX DE HOST
 # =========================
 def get_cos_client():
-    endpoint = os.environ.get("COS_ENDPOINT") # Tu IP del Private Path: http://192.168.1.12
-    
-    logger.info(f"🔧 Conectando al endpoint: {endpoint}")
-    
+    # 1. Validación de variables (Si esto falla, verás el nombre exacto en el log)
+    api_key = os.environ.get("COS_API_KEY")
+    instance_crn = os.environ.get("COS_INSTANCE_CRN")
+    endpoint = os.environ.get("COS_ENDPOINT")
+
+    if not api_key or not instance_crn:
+        logger.error("❌ Faltan credenciales: COS_API_KEY o COS_INSTANCE_CRN son None")
+        raise ValueError("Credenciales COS no configuradas en variables de entorno")
+
+    logger.info(f"🔧 Iniciando cliente COS hacia: {endpoint}")
+
+    # 2. Sesión explícita
     session = ibm_boto3.session.Session(
-        ibm_api_key_id=os.environ["COS_API_KEY"],
-        ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"]
+        ibm_api_key_id=api_key,
+        ibm_service_instance_id=instance_crn
     )
 
+    # 3. Cliente con fix de Host para Private Path
     client = session.client(
         "s3",
         config=Config(
@@ -49,8 +58,7 @@ def get_cos_client():
         endpoint_url=endpoint,
     )
 
-    # FIX CRÍTICO: Inyección de Host para que la firma coincida con el COS
-    # Evita el AttributeError: 'HTTPHeaders' object has no attribute 'update'
+    # El Fix del Host (asignación directa para evitar el AttributeError anterior)
     def fix_hostname(request, **kwargs):
         request.headers['Host'] = 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'
 
@@ -104,4 +112,4 @@ def get_info():
 
 @app.get("/version")
 def version():
-    return {"version": "2.0.0-fixed-headers"}
+    return {"version": "3.0.0-fixed-headers"}
