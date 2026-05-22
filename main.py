@@ -27,31 +27,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_key = os.environ.get("COS_API_KEY")
-instance_crn = os.environ.get("COS_INSTANCE_CRN")
-endpoint = os.environ.get("COS_ENDPOINT")
-
-
-# =========================
-# CLIENTE COS CON FIX DE HOST
-# =========================
 def get_cos_client():
-    # 1. Validación de variables (Si esto falla, verás el nombre exacto en el log)
-    if not api_key or not instance_crn:
-        logger.error("❌ Faltan credenciales: COS_API_KEY o COS_INSTANCE_CRN son None")
-        raise ValueError("Credenciales COS no configuradas en variables de entorno")
+    api_key = os.environ.get("COS_API_KEY")
+    instance_crn = os.environ.get("COS_INSTANCE_CRN")
+    endpoint = os.environ.get("COS_ENDPOINT")
 
-    logger.info(f"🔧 Iniciando cliente COS hacia: {endpoint}")
-
-    # 2. Sesión explícita
-    session = ibm_boto3.session.Session(
-        ibm_api_key_id=api_key,
-        ibm_service_instance_id=instance_crn
-    )
-
-    # 3. Cliente con fix de Host para Private Path
-    client = session.client(
+    # Inyectamos las credenciales DIRECTAMENTE en el cliente
+    # para evitar que el firmante de botocore las busque en el vacío
+    client = ibm_boto3.client(
         "s3",
+        ibm_api_key_id=api_key,
+        ibm_service_instance_id=instance_crn,
         config=Config(
             signature_version="s3v4",
             s3={"addressing_style": "path"}
@@ -60,7 +46,7 @@ def get_cos_client():
         endpoint_url=endpoint,
     )
 
-    # El Fix del Host (asignación directa para evitar el AttributeError anterior)
+    # El fix del Host para que el COS no te eche
     def fix_hostname(request, **kwargs):
         request.headers['Host'] = 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'
 
@@ -114,8 +100,5 @@ def get_info():
 
 @app.get("/version")
 def version():
-    return {"version": "3.0.0-fixed-headers",
-    "api_key": api_key,
-    "instance_crn": instance_crn,
-    "endpoint": endpoint
+    return {"version": "3.0.0-fixed-headers"
 }
