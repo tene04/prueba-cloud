@@ -28,33 +28,33 @@ app.add_middleware(
 # COS CLIENT CORREGIDO
 # =========================
 def get_cos_client():
-    endpoint = os.environ.get("COS_ENDPOINT")
-    bucket = os.environ.get("COS_BUCKET")
-
-    logger.info("====================================")
-    logger.info("🔧 CONFIGURANDO SESIÓN Y CLIENTE COS")
+    endpoint = os.environ.get("COS_ENDPOINT") # http://192.168.1.12
     
-    # 1. Creamos una sesión para que la autenticación con IAM 
-    # se gestione de forma independiente al endpoint del VPE.
+    # 1. Sesión normal para IAM
     session = ibm_boto3.session.Session(
         ibm_api_key_id=os.environ["COS_API_KEY"],
         ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"]
     )
 
-    # 2. Creamos el cliente desde la sesión
+    # 2. Cliente con configuración de firma para PROXY
     client = session.client(
         "s3",
         config=Config(
-            signature_version="oauth",
+            signature_version="s3v4", # Forzamos versión 4
             s3={"addressing_style": "path"}
         ),
-        # verify=False es necesario porque el VPE usa certificados internos
         verify=False, 
         endpoint_url=endpoint,
     )
 
-    logger.info(f"✅ Cliente vinculado a: {endpoint}")
-    logger.info("====================================")
+    # ESTO ES EL FIX: Forzamos el host real en la firma
+    # aunque los paquetes vayan a la IP del proxy.
+    client.meta.events.register(
+        'before-sign.s3', 
+        lambda request, **kwargs: request.headers.update(
+            {'Host': 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'}
+        )
+    )
 
     return client
 
@@ -71,6 +71,7 @@ def get_empleados_data():
     logger.info("📦 SOLICITANDO OBJETO A TRAVÉS DE VPE")
 
     try:
+        logger.info("tu madre")
         response = client.get_object(
             Bucket=bucket,
             Key=key
@@ -139,4 +140,4 @@ def test_vpe():
 
 @app.get("/version")
 def version():
-    return {"version": "final-vpe-fix"}
+    return {"version": "final-vpe-fix-version2.0"}
