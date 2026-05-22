@@ -1,3 +1,7 @@
+## =========================================================
+## main.py - Versión Final con Fix de Firma para Private Path
+## =========================================================
+
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import ibm_boto3
@@ -11,9 +15,7 @@ from typing import Optional
 
 app = FastAPI()
 
-# =========================
-# LOGGING GLOBAL
-# =========================
+# Configuración de Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ce-cos-debug")
 
@@ -25,69 +27,53 @@ app.add_middleware(
 )
 
 # =========================
-# COS CLIENT CORREGIDO
+# CLIENTE COS CON FIX DE HOST
 # =========================
 def get_cos_client():
-    endpoint = os.environ.get("COS_ENDPOINT") # http://192.168.1.12
+    endpoint = os.environ.get("COS_ENDPOINT") # Tu IP del Private Path: http://192.168.1.12
     
-    # 1. Sesión normal para IAM
+    logger.info(f"🔧 Conectando al endpoint: {endpoint}")
+    
     session = ibm_boto3.session.Session(
         ibm_api_key_id=os.environ["COS_API_KEY"],
         ibm_service_instance_id=os.environ["COS_INSTANCE_CRN"]
     )
 
-    # 2. Cliente con configuración de firma para PROXY
     client = session.client(
         "s3",
         config=Config(
-            signature_version="s3v4", # Forzamos versión 4
+            signature_version="s3v4",
             s3={"addressing_style": "path"}
         ),
         verify=False, 
         endpoint_url=endpoint,
     )
 
-    # ESTO ES EL FIX: Forzamos el host real en la firma
-    # aunque los paquetes vayan a la IP del proxy.
-    client.meta.events.register(
-        'before-sign.s3', 
-        lambda request, **kwargs: request.headers.update(
-            {'Host': 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'}
-        )
-    )
+    # FIX CRÍTICO: Inyección de Host para que la firma coincida con el COS
+    # Evita el AttributeError: 'HTTPHeaders' object has no attribute 'update'
+    def fix_hostname(request, **kwargs):
+        request.headers['Host'] = 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'
+
+    client.meta.events.register('before-sign.s3', fix_hostname)
 
     return client
 
-
 # =========================
-# COS READ DEBUG
+# LÓGICA DE DATOS
 # =========================
 def get_empleados_data():
-    start = time.time()
     client = get_cos_client()
     bucket = os.environ["COS_BUCKET"]
     key = "empleados.json"
 
-    logger.info("📦 SOLICITANDO OBJETO A TRAVÉS DE VPE")
-
     try:
-        logger.info("tu madre")
-        response = client.get_object(
-            Bucket=bucket,
-            Key=key
-        )
-
-        logger.info("📥 RESPUESTA RECIBIDA")
+        logger.info(f"📦 Leyendo {key} desde el bucket {bucket}")
+        response = client.get_object(Bucket=bucket, Key=key)
         body = response["Body"].read()
-        data = json.loads(body.decode("utf-8"))
-
-        logger.info(f"⏱ Operación completada en {time.time() - start:.2f}s")
-        return data
-
+        return json.loads(body.decode("utf-8"))
     except Exception as e:
-        logger.error(f"💥 ERROR EN COS: {str(e)}")
-        raise
-
+        logger.error(f"💥 Error al acceder al COS: {str(e)}")
+        raise e
 
 # =========================
 # ENDPOINTS
@@ -98,7 +84,6 @@ def get_empleados(
     cargo:  Optional[str] = Query(None),
     ciudad: Optional[str] = Query(None),
 ):
-    logger.info("🚀 REQUEST /empleados")
     data = get_empleados_data()
 
     if depto: data = [e for e in data if e["depto"] == depto]
@@ -110,34 +95,13 @@ def get_empleados(
 @app.get("/info")
 def get_info():
     endpoint = os.environ.get("COS_ENDPOINT", "no configurado")
-    hostname = endpoint.replace("https://", "").replace("http://", "").split("/")[0]
-    
-    try:
-        resolved_ips = list(set(r[4][0] for r in socket.getaddrinfo(hostname, None)))
-    except Exception as e:
-        resolved_ips = [f"DNS ERROR: {str(e)}"]
-
     return {
         "endpoint": endpoint,
-        "ips_resueltas": resolved_ips,
-        "vpe_fijo": "192.168.1.18",
-        "proxy_vsi": "192.168.1.12"
+        "vpe_private_path": "192.168.1.12",
+        "proxy_vsi_vpe": "192.168.1.18",
+        "status": "Final Version"
     }
-
-@app.get("/test-vpe")
-def test_vpe():
-    results = {}
-    vsi_ip, vpe_ip = "192.168.1.12", "192.168.1.18"
-
-    for name, ip, port in [("vsi_80", vsi_ip, 80), ("vpe_443", vpe_ip, 443)]:
-        try:
-            socket.create_connection((ip, port), timeout=3).close()
-            results[name] = "OK"
-        except Exception as e:
-            results[name] = f"Error: {str(e)}"
-    
-    return results
 
 @app.get("/version")
 def version():
-    return {"version": "final-vpe-fix-version2.0"}
+    return {"version": "2.0.0-fixed-headers"}
