@@ -5,7 +5,7 @@ import os
 app = FastAPI()
 
 # La IP del NLB que creaste en IBM Cloud
-PROXY_URL = "http://10.240.1.5/empleados.json"
+PROXY_URL = "http://192.168.1.29/empleados.json"
 
 @app.get("/data")
 async def get_data():
@@ -16,4 +16,4 @@ async def get_data():
 
 @app.get("/version")
 def version():
-    return {"version": "final definitiva sin cambios 3"}
+    return {"version": "final definitiva sin cambios 4"}
