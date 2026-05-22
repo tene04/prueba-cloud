@@ -28,16 +28,19 @@ app.add_middleware(
 )
 
 def get_cos_client():
+    # Estas son las variables que YA TIENES
     api_key = os.environ.get("COS_API_KEY")
-    instance_crn = os.environ.get("COS_INSTANCE_CRN")
+    service_instance_id = os.environ.get("COS_INSTANCE_CRN")
     endpoint = os.environ.get("COS_ENDPOINT")
 
-    # Inyectamos las credenciales DIRECTAMENTE en el cliente
-    # para evitar que el firmante de botocore las busque en el vacío
+    # Creamos el cliente inyectando la API KEY en los campos de AWS 
+    # para que el firmante de S3 tenga un string (tu clave) y no un None
     client = ibm_boto3.client(
         "s3",
-        ibm_api_key_id=api_key,
-        ibm_service_instance_id=instance_crn,
+        aws_access_key_id=api_key,       # Usamos tu API KEY aquí
+        aws_secret_access_key=api_key,   # Y aquí
+        ibm_api_key_id=api_key,          # Y aquí (el estándar de IBM)
+        ibm_service_instance_id=service_instance_id,
         config=Config(
             signature_version="s3v4",
             s3={"addressing_style": "path"}
@@ -46,14 +49,14 @@ def get_cos_client():
         endpoint_url=endpoint,
     )
 
-    # El fix del Host para que el COS no te eche
+    # El fix del Host sigue siendo necesario para que Nginx pase la bola al COS
     def fix_hostname(request, **kwargs):
         request.headers['Host'] = 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'
 
     client.meta.events.register('before-sign.s3', fix_hostname)
 
     return client
-
+    
 # =========================
 # LÓGICA DE DATOS
 # =========================
