@@ -28,33 +28,31 @@ app.add_middleware(
 )
 
 def get_cos_client():
-    # Estas son las variables que YA TIENES
-    api_key = os.environ.get("COS_API_KEY")
-    service_instance_id = os.environ.get("COS_INSTANCE_CRN")
+    # Extraemos las llaves HMAC
+    access_key = os.environ.get("COS_API_KEY") # Aquí ahora va el access_key_id
+    secret_key = os.environ.get("COS_AUTH_SECRET") # El secret_access_key
     endpoint = os.environ.get("COS_ENDPOINT")
+    instance_id = os.environ.get("COS_INSTANCE_CRN")
 
-    # Creamos el cliente inyectando la API KEY en los campos de AWS 
-    # para que el firmante de S3 tenga un string (tu clave) y no un None
     client = ibm_boto3.client(
         "s3",
-        aws_access_key_id=api_key,       # Usamos tu API KEY aquí
-        aws_secret_access_key=api_key,   # Y aquí
-        ibm_api_key_id=api_key,          # Y aquí (el estándar de IBM)
-        ibm_service_instance_id=service_instance_id,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        ibm_service_instance_id=instance_id,
+        endpoint_url=endpoint,
+        verify=False,
         config=Config(
             signature_version="s3v4",
             s3={"addressing_style": "path"}
-        ),
-        verify=False, 
-        endpoint_url=endpoint,
+        )
     )
 
-    # El fix del Host sigue siendo necesario para que Nginx pase la bola al COS
+    # El fix del Host para engañar al COS a través del proxy
     def fix_hostname(request, **kwargs):
         request.headers['Host'] = 's3.direct.eu-de.cloud-object-storage.appdomain.cloud'
 
     client.meta.events.register('before-sign.s3', fix_hostname)
-
+    
     return client
 
 # =========================
