@@ -2,6 +2,7 @@
 ## main.py - Versión Final con Fix de Firma para Private Path
 ## =========================================================
 
+from sys import api_version
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import ibm_boto3
@@ -26,15 +27,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api_key = os.environ.get("COS_API_KEY")
+instance_crn = os.environ.get("COS_INSTANCE_CRN")
+endpoint = os.environ.get("COS_ENDPOINT")
+
+
 # =========================
 # CLIENTE COS CON FIX DE HOST
 # =========================
 def get_cos_client():
     # 1. Validación de variables (Si esto falla, verás el nombre exacto en el log)
-    api_key = os.environ.get("COS_API_KEY")
-    instance_crn = os.environ.get("COS_INSTANCE_CRN")
-    endpoint = os.environ.get("COS_ENDPOINT")
-
     if not api_key or not instance_crn:
         logger.error("❌ Faltan credenciales: COS_API_KEY o COS_INSTANCE_CRN son None")
         raise ValueError("Credenciales COS no configuradas en variables de entorno")
@@ -112,4 +114,8 @@ def get_info():
 
 @app.get("/version")
 def version():
-    return {"version": "3.0.0-fixed-headers"}
+    return {"version": "3.0.0-fixed-headers",
+    "api_key": api_key,
+    "instance_crn": instance_crn,
+    "endpoint": endpoint
+}
