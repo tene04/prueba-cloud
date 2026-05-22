@@ -56,7 +56,7 @@ def get_cos_client():
     client.meta.events.register('before-sign.s3', fix_hostname)
 
     return client
-    
+
 # =========================
 # LÓGICA DE DATOS
 # =========================
@@ -103,5 +103,5 @@ def get_info():
 
 @app.get("/version")
 def version():
-    return {"version": "3.0.0-fixed-headers"
+    return {"version": "4.0.0-fixed-headers"
 }
