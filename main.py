@@ -6,7 +6,7 @@ import socket
 app = FastAPI()
 
 # Mantenemos tu IP confirmada
-PROXY_URL = "http://192.168.1.29/empleados.json"
+PROXY_URL = "http://192.160.0.4/empleados.json"
 
 @app.get("/data")
 async def get_data():
