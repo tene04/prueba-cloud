@@ -29,8 +29,8 @@ def test_connect():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(5) # 5 segundos es más realista para una red privada
     try:
-        s.connect(("192.168.1.29", 80))
-        return {"status": "CONECTADO AL VPE", "ip": "192.168.1.29", "port": 80}
+        s.connect(("192.160.0.4", 80))
+        return {"status": "CONECTADO AL VPE", "ip": "192.160.0.4", "port": 80}
     except Exception as e:
         return {"status": "BLOQUEADO", "error": str(e)}
     finally:
@@ -39,4 +39,4 @@ def test_connect():
 @app.get("/version")
 def version():
     # He añadido el puerto para que siempre recuerdes por dónde entras
-    return {"version": "final definitiva v5", "target": "NLB-Port-80"}
+    return {"version": "final definitiva v6", "target": "NLB-Port-80"}
