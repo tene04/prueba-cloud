@@ -10,15 +10,18 @@ PROXY_URL = "http://192.168.1.29/empleados.json"
 
 @app.get("/data")
 async def get_data():
-    # 1. Aumentamos el timeout. httpx por defecto es muy estricto (5s).
-    # En entornos de VPC a veces la primera conexión tarda un poco más.
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         try:
             response = await client.get(PROXY_URL)
-            response.raise_for_status() # Lanza error si el NLB devuelve 4xx o 5xx
+            response.raise_for_status()
             return response.json()
         except Exception as e:
-            return {"error": f"Error conectando a la VSI: {str(e)}"}
+            # Más detalle del error
+            return {
+                "error": str(e),
+                "tipo": type(e).__name__,
+                "detalle": repr(e)
+            }
 
 @app.get("/test")
 def test_connect():
@@ -36,4 +39,4 @@ def test_connect():
 @app.get("/version")
 def version():
     # He añadido el puerto para que siempre recuerdes por dónde entras
-    return {"version": "final definitiva v4", "target": "NLB-Port-80"}
+    return {"version": "final definitiva v5", "target": "NLB-Port-80"}
